@@ -10,6 +10,7 @@ import {
 } from "@mui/material";
 
 const ImportErrorsModal = ({ open, onClose, errors }) => {
+  const safeErrors = Array.isArray(errors) ? errors : [];
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>Import Errors</DialogTitle>
@@ -24,7 +25,7 @@ const ImportErrorsModal = ({ open, onClose, errors }) => {
           </TableHead>
 
           <TableBody>
-            {errors.map((rowObj, index) => {
+            {safeErrors?.map((rowObj, index) => {
               const rowNumber = Object.keys(rowObj)[0];
               const fieldErrors = rowObj[rowNumber];
 

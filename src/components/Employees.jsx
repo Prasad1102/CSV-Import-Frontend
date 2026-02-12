@@ -15,6 +15,7 @@ import {
   Button,
 } from "@mui/material";
 import ImportErrorsModal from "./ImportErrorsModal";
+import CircularProgress from "@mui/material/CircularProgress";
 
 const POLL_INTERVAL = 2000;
 const FINAL_STATUSES = ["failed", "completed", "completed_with_errors"];
@@ -28,47 +29,53 @@ const Employees = ({ uploadId }) => {
   const [importErrors, setImportErrors] = useState([]);
   const [openErrors, setOpenErrors] = useState(false);
 
-  const intervalRef = useRef(null);
-
   useEffect(() => {
-    const fetchEmployees = async () => {
+    const fetchImports = async () => {
       try {
-        const response = await API.getUsers(page);
-        setData(response.data.employees);
+        const response = await API.getImports(page);
+
+        setData(response.data.imports);
         setTotalPages(response.data.meta.total_pages);
       } catch (err) {
-        console.error("Employees API error", err);
+        console.error("Imports API error", err);
       }
     };
-    fetchEmployees();
+
+    fetchImports();
   }, [page]);
 
   /* ---------- Import Status Polling ---------- */
   useEffect(() => {
     if (!uploadId) return;
 
+    let isMounted = true;
+    let timeoutId;
+
     const pollStatus = async () => {
       try {
         const response = await API.checkFileStatus(uploadId);
         const status = response.data.status;
 
+        if (!isMounted) return;
+
         setImportStatus(status);
         setImportErrors(response.data.import_errors || []);
 
-        if (FINAL_STATUSES.includes(status)) {
-          clearInterval(intervalRef.current);
-          intervalRef.current = null;
+        if (!FINAL_STATUSES.includes(status)) {
+          timeoutId = setTimeout(pollStatus, POLL_INTERVAL);
         }
       } catch (err) {
         console.error("Import status error", err);
+        timeoutId = setTimeout(pollStatus, POLL_INTERVAL);
       }
     };
 
     pollStatus();
 
-    intervalRef.current = setInterval(pollStatus, POLL_INTERVAL);
-
-    return () => clearInterval(intervalRef.current);
+    return () => {
+      isMounted = false;
+      clearTimeout(timeoutId);
+    };
   }, [uploadId]);
 
   return (
@@ -80,7 +87,7 @@ const Employees = ({ uploadId }) => {
           sx={{ mb: 2, alignItems: "center", justifyContent: "center" }}
         >
           <Chip
-            label={`Import Status: ${importStatus}`}
+            label={`Import Status: ${importStatus.replaceAll("_", " ")}`}
             color={
               importStatus === "completed"
                 ? "success"
@@ -88,9 +95,12 @@ const Employees = ({ uploadId }) => {
                   ? "warning"
                   : importStatus === "failed"
                     ? "error"
-                    : "info"
+                    : importStatus === "processing"
+                      ? "info"
+                      : "default"
             }
           />
+          {importStatus === "processing" && <CircularProgress size={20} />}
 
           {importErrors.length > 0 && (
             <Button
@@ -119,28 +129,48 @@ const Employees = ({ uploadId }) => {
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell>Sr. No</TableCell>
-                  <TableCell>Name</TableCell>
-                  <TableCell>Email</TableCell>
-                  <TableCell>Role</TableCell>
-                  <TableCell>Mobile</TableCell>
-                  <TableCell>Join Date</TableCell>
+                  <TableCell>ID</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Failed Count</TableCell>
+                  <TableCell>Total Count</TableCell>
+                  <TableCell>Errors</TableCell>
                 </TableRow>
               </TableHead>
 
               <TableBody>
-                {data.map((row, index) => (
-                  <TableRow key={row.id}>
-                    <TableCell>{index + 1}</TableCell>
-                    <TableCell>
-                      {row.first_name} {row.last_name}
-                    </TableCell>
-                    <TableCell>{row.email}</TableCell>
-                    <TableCell>{row.role}</TableCell>
-                    <TableCell>{row.mobile}</TableCell>
-                    <TableCell>{row.joining_date}</TableCell>
-                  </TableRow>
-                ))}
+                {data.map((row) => {
+                  const errors = Array.isArray(row.import_errors)
+                    ? row.import_errors
+                    : [];
+
+                  const hasErrors = errors.length > 0;
+
+                  return (
+                    <TableRow key={row.id}>
+                      <TableCell>{row.id}</TableCell>
+                      <TableCell>{row.status}</TableCell>
+                      <TableCell>{row.failed_count ?? 0}</TableCell>
+                      <TableCell>{row.total_count ?? 0}</TableCell>
+                      <TableCell>
+                        {hasErrors ? (
+                          <Button
+                            size="small"
+                            color="error"
+                            variant="outlined"
+                            onClick={() => {
+                              setImportErrors(errors);
+                              setOpenErrors(true);
+                            }}
+                          >
+                            View Errors ({errors.length})
+                          </Button>
+                        ) : (
+                          "No Errors"
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </TableContainer>

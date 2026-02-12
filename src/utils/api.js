@@ -15,3 +15,7 @@ export const uploadFile = (formData) => {
 export const checkFileStatus = (id) => {
   return axiosInstance.get(`/imports/${id}`);
 };
+
+export const getImports = (page) => {
+  return axiosInstance.get("/imports", { params: { page: page } });
+};
