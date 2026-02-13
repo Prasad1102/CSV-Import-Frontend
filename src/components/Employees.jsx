@@ -48,15 +48,12 @@ const Employees = ({ uploadId }) => {
   useEffect(() => {
     if (!uploadId) return;
 
-    let isMounted = true;
     let timeoutId;
 
-    const pollStatus = async () => {
+    async function pollStatus() {
       try {
         const response = await API.checkFileStatus(uploadId);
         const status = response.data.status;
-
-        if (!isMounted) return;
 
         setImportStatus(status);
         setImportErrors(response.data.import_errors || []);
@@ -68,12 +65,13 @@ const Employees = ({ uploadId }) => {
         console.error("Import status error", err);
         timeoutId = setTimeout(pollStatus, POLL_INTERVAL);
       }
-    };
+    }
 
     pollStatus();
 
     return () => {
-      isMounted = false;
+      console.log("leaving away");
+      console.log("timeoutId", timeoutId);
       clearTimeout(timeoutId);
     };
   }, [uploadId]);

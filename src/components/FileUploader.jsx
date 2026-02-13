@@ -23,6 +23,7 @@ const FileUploader = () => {
     } catch (error) {
       console.error("Upload failed", error);
     } finally {
+      event.target.value = null;
       setLoading(false);
     }
   };
